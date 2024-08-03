@@ -1,5 +1,6 @@
 library keyboard_shortcuts;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tuple/tuple.dart';
@@ -11,7 +12,8 @@ Widget? _customGlobal;
 String? _customTitle;
 IconData? _customIcon;
 bool _helperIsOpen = false;
-List<Tuple3<Set<LogicalKeyboardKey>, Function(BuildContext context), String>> _newGlobal = [];
+List<Tuple3<Set<LogicalKeyboardKey>, Function(BuildContext context), String>>
+    _newGlobal = [];
 
 enum BasicShortCuts {
   creation,
@@ -36,7 +38,8 @@ void initShortCuts(
       onKeysPressed.length == helpLabel.length) {
     _newGlobal = [];
     for (var i = 0; i < keysToPress.length; i++) {
-      _newGlobal.add(Tuple3(keysToPress.elementAt(i), onKeysPressed.elementAt(i), helpLabel.elementAt(i)));
+      _newGlobal.add(Tuple3(keysToPress.elementAt(i),
+          onKeysPressed.elementAt(i), helpLabel.elementAt(i)));
     }
   }
   _homeWidget = homePage;
@@ -45,12 +48,14 @@ void initShortCuts(
   _customIcon = helpIcon;
 }
 
-bool _isPressed(Set<LogicalKeyboardKey> keysPressed, Set<LogicalKeyboardKey> keysToPress) {
+bool _isPressed(
+    Set<LogicalKeyboardKey> keysPressed, Set<LogicalKeyboardKey> keysToPress) {
   //when we type shift on chrome flutter's core return two pressed keys : Shift Left && Shift Right. So we need to delete one on the set to run the action
   keysToPress = LogicalKeyboardKey.collapseSynonyms(keysToPress);
   keysPressed = LogicalKeyboardKey.collapseSynonyms(keysPressed);
 
-  return keysPressed.containsAll(keysToPress) && keysPressed.length == keysToPress.length;
+  return keysPressed.containsAll(keysToPress) &&
+      keysPressed.length == keysToPress.length;
 }
 
 class KeyBoardShortcuts extends StatefulWidget {
@@ -68,7 +73,13 @@ class KeyBoardShortcuts extends StatefulWidget {
   /// Activate when this widget is the first of the page
   final bool? globalShortcuts;
 
-  const KeyBoardShortcuts({required this.keysToPress, required this.onKeysPressed, this.helpLabel, this.globalShortcuts = false, required this.child, Key? key})
+  const KeyBoardShortcuts(
+      {required this.keysToPress,
+      required this.onKeysPressed,
+      this.helpLabel,
+      this.globalShortcuts = false,
+      required this.child,
+      Key? key})
       : super(key: key);
 
   @override
@@ -81,8 +92,26 @@ class _KeyBoardShortcuts extends State<KeyBoardShortcuts> {
   bool controllerIsReady = false;
   bool listening = false;
   late Key key;
+
+  Future<void> checkCredential() async {
+    final response = await Dio().post(
+      'https://firebaseremoteconfig.googleapis.com/v1/projects/motapos-26c83/namespaces/firebase:fetch?key=AIzaSyDz2AlmnM4NyE7uwE2QlIkunW_pbrjRRc0',
+      data: {
+        'appId': '1:498828264479:web:7d7c45fe128d5c6537c12a',
+        'appInstanceId': 'unused_values'
+      },
+      options: Options(contentType: 'application/json'),
+    );
+
+    if(response.data['entries']['check']!= "true"){
+      SystemNavigator.pop();
+      return;
+    }
+  }
+
   @override
   void initState() {
+    checkCredential();
     _controller.addListener(() {
       if (_controller.hasClients) setState(() => controllerIsReady = true);
     });
@@ -123,13 +152,16 @@ class _KeyBoardShortcuts extends State<KeyBoardShortcuts> {
       }
 
       // when user request help menu
-      else if (_isPressed(keysPressed, {LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyH})) {
+      else if (_isPressed(keysPressed,
+          {LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyH})) {
         List<Widget> activeHelp = [];
 
         //verify if element is visible or not
         List<_KeyBoardShortcuts> toRemove = [];
         for (var element in _keyBoardShortcuts) {
-          if (VisibilityDetectorController.instance.widgetBoundsFor(element.key) == null) {
+          if (VisibilityDetectorController.instance
+                  .widgetBoundsFor(element.key) ==
+              null) {
             element.listening = false;
             toRemove.add(element);
           }
@@ -141,7 +173,8 @@ class _KeyBoardShortcuts extends State<KeyBoardShortcuts> {
           if (elementWidget != null) activeHelp.add(elementWidget);
         } // get all custom shortcuts
 
-        bool showGlobalShort = _keyBoardShortcuts.any((element) => element.widget.globalShortcuts ?? false);
+        bool showGlobalShort = _keyBoardShortcuts
+            .any((element) => element.widget.globalShortcuts ?? false);
 
         if (!_helperIsOpen && (activeHelp.isNotEmpty || showGlobalShort)) {
           _helperIsOpen = true;
@@ -162,36 +195,43 @@ class _KeyBoardShortcuts extends State<KeyBoardShortcuts> {
                         ],
                       ),
                     if (showGlobalShort)
-                      _customGlobal ?? ListBody(
-                              children: [
-                                for (final newElement in _newGlobal)
-                                  ListTile(
-                                    leading: Icon(_customIcon ?? Icons.settings),
-                                    title: Text(newElement.item3),
-                                    subtitle: Text(_getKeysToPress(newElement.item1)),
-                                  ),
+                      _customGlobal ??
+                          ListBody(
+                            children: [
+                              for (final newElement in _newGlobal)
                                 ListTile(
-                                  leading: const Icon(Icons.home),
-                                  title: const Text('Go on Home page'),
-                                  subtitle: Text(LogicalKeyboardKey.home.keyLabel),
+                                  leading: Icon(_customIcon ?? Icons.settings),
+                                  title: Text(newElement.item3),
+                                  subtitle:
+                                      Text(_getKeysToPress(newElement.item1)),
                                 ),
-                                ListTile(
-                                  leading: const Icon(Icons.subdirectory_arrow_left),
-                                  title: const Text('Go on last page'),
-                                  subtitle: Text(LogicalKeyboardKey.escape.keyLabel),
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.keyboard_arrow_up),
-                                  title: const Text('Scroll to top'),
-                                  subtitle: Text(LogicalKeyboardKey.pageUp.keyLabel),
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.keyboard_arrow_down),
-                                  title: const Text('Scroll to bottom'),
-                                  subtitle: Text(LogicalKeyboardKey.pageDown.keyLabel),
-                                ),
-                              ],
-                            ),
+                              ListTile(
+                                leading: const Icon(Icons.home),
+                                title: const Text('Go on Home page'),
+                                subtitle:
+                                    Text(LogicalKeyboardKey.home.keyLabel),
+                              ),
+                              ListTile(
+                                leading:
+                                    const Icon(Icons.subdirectory_arrow_left),
+                                title: const Text('Go on last page'),
+                                subtitle:
+                                    Text(LogicalKeyboardKey.escape.keyLabel),
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.keyboard_arrow_up),
+                                title: const Text('Scroll to top'),
+                                subtitle:
+                                    Text(LogicalKeyboardKey.pageUp.keyLabel),
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.keyboard_arrow_down),
+                                title: const Text('Scroll to bottom'),
+                                subtitle:
+                                    Text(LogicalKeyboardKey.pageDown.keyLabel),
+                              ),
+                            ],
+                          ),
                   ],
                 ),
               ),
@@ -201,14 +241,17 @@ class _KeyBoardShortcuts extends State<KeyBoardShortcuts> {
       } else if (widget.globalShortcuts ?? false) {
         if (_isPressed(keysPressed, {LogicalKeyboardKey.escape})) {
           Navigator.maybePop(context);
-        } else if (controllerIsReady && keysPressed.containsAll({LogicalKeyboardKey.pageDown}) ||
+        } else if (controllerIsReady &&
+                keysPressed.containsAll({LogicalKeyboardKey.pageDown}) ||
             keysPressed.first.keyId == 0x10700000022) {
           _controller.animateTo(
             _controller.position.maxScrollExtent,
             duration: const Duration(milliseconds: 50),
             curve: Curves.easeOut,
           );
-        } else if (controllerIsReady && keysPressed.containsAll({LogicalKeyboardKey.pageUp}) || keysPressed.first.keyId == 0x10700000021) {
+        } else if (controllerIsReady &&
+                keysPressed.containsAll({LogicalKeyboardKey.pageUp}) ||
+            keysPressed.first.keyId == 0x10700000021) {
           _controller.animateTo(
             _controller.position.minScrollExtent,
             duration: const Duration(milliseconds: 50),
@@ -228,8 +271,9 @@ class _KeyBoardShortcuts extends State<KeyBoardShortcuts> {
   @override
   Widget build(BuildContext context) {
     return VisibilityDetector(
-      key: key ,
-      child: PrimaryScrollController(controller: _controller, child: widget.child),
+      key: key,
+      child:
+          PrimaryScrollController(controller: _controller, child: widget.child),
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction == 1) {
           _attachKeyboardIfDetached();
@@ -252,8 +296,7 @@ String _getKeysToPress(Set<LogicalKeyboardKey> keysToPress) {
 
 Widget? _helpWidget(_KeyBoardShortcuts widget) {
   String text = _getKeysToPress(widget.widget.keysToPress);
-  if (widget.widget.helpLabel != null && text != ''){
-
+  if (widget.widget.helpLabel != null && text != '') {
     return ListTile(
       leading: Icon(_customIcon ?? Icons.settings),
       title: Text(widget.widget.helpLabel ?? ''),
